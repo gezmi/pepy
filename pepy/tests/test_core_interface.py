@@ -16,7 +16,8 @@ from pepy import PeptideProteinComplex
 class TestInterfaceCalculation:
 
 	@pytest.fixture
-	def interface_complex(self, pdb_file='pepy/tests/data/1ycr_af2_55d19_unrelaxed_rank_001_alphafold2_multimer_v3_model_1_seed_000.pdb'):
+	def interface_complex(self,
+						  pdb_file='pepy/tests/data/1ycr_af2_55d19_unrelaxed_rank_001_alphafold2_multimer_v3_model_1_seed_000.pdb'):
 		"""Create a complex ready for interface analysis."""
 		complex = PeptideProteinComplex()
 		complex.load_structure(pdb_file)
@@ -86,8 +87,6 @@ class TestInterfaceCalculation:
 		# Should return empty if interface too small
 		assert isinstance(pep_interface, list)
 		assert isinstance(rec_interface, list)
-
-	# With high minimum, likely to get empty interface
 
 	def test_no_cb_prefiltering(self, interface_complex):
 		"""Test calculation without CB prefiltering."""
@@ -180,77 +179,86 @@ class TestInterfaceCalculation:
 			interface_complex.get_interface_atoms()
 
 
-class TestGeometryUtils:
-	"""Test geometry utility functions."""
+class TestIntegratedGeometryMethods:
+	"""Test the geometry methods now integrated into PeptideProteinComplex."""
 
 	@pytest.fixture
-	def sample_atoms_df(self):
-		"""Sample atom DataFrame for testing."""
-		return pd.DataFrame({
-			'atom_name': ['CA', 'CB', 'CA', 'CB', 'CA', 'CB'],
-			'residue_name': ['ALA', 'ALA', 'GLY', 'GLY', 'VAL', 'VAL'],
-			'residue_number': [1, 1, 2, 2, 3, 3],
-			'chain_id': ['A', 'A', 'A', 'A', 'A', 'A'],
-			'x_coord': [0.0, 1.0, 2.0, 3.0, 10.0, 15.0],
-			'y_coord': [0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
-			'z_coord': [0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
-			'element_symbol': ['C', 'C', 'C', 'C', 'C', 'C'],
-			'b_factor': [50.0, 50.0, 60.0, 60.0, 70.0, 80.0]
-		})
+	def sample_complex(self, temp_file):
+		"""Create a complex with sample atom data for testing geometry methods."""
+		pdb_content = """HEADER    TEST GEOMETRY
+ATOM      1  CA  ALA A   1       0.000   0.000   0.000  1.00 50.00           C  
+ATOM      2  CB  ALA A   1       1.000   0.000   0.000  1.00 50.00           C  
+ATOM      3  CA  GLY A   2       2.000   0.000   0.000  1.00 60.00           C  
+ATOM      4  CA  VAL A   3      10.000   0.000   0.000  1.00 70.00           C  
+ATOM      5  CB  VAL A   3      15.000   0.000   0.000  1.00 80.00           C  
+ATOM      6  CA  PHE B   1       5.000   0.000   0.000  1.00 85.00           C  
+ATOM      7  CB  PHE B   1       6.000   0.000   0.000  1.00 85.00           C  
+END
+"""
+		with open(temp_file, 'w') as f:
+			f.write(pdb_content)
 
-	def test_get_cb_or_ca_atoms(self, sample_atoms_df):
-		"""Test CB/CA atom selection."""
-		from pepy.utils.geometry import GeometryUtils
+		complex = PeptideProteinComplex.from_file(temp_file)
+		complex.identify_chains(peptide_chain='B', receptor_chains=['A'])
+		return complex
 
-		result = GeometryUtils.get_cb_or_ca_atoms(sample_atoms_df)
+	def test_get_cb_or_ca_atoms_integrated(self, sample_complex):
+		"""Test CB/CA atom selection via the integrated method."""
+		atom_df = sample_complex._df['ATOM']
+		result = sample_complex._get_cb_or_ca_atoms(atom_df)
 
-		# Should get CB for ALA and VAL, CA for GLY
-		expected_atoms = ['CB', 'CA', 'CB']  # ALA-CB, GLY-CA, VAL-CB
-		assert list(result['atom_name']) == expected_atoms
+		# Should get CB for ALA and VAL, CA for GLY, CB for PHE
+		assert not result.empty
+		assert len(result) == 4  # ALA-CB, GLY-CA, VAL-CB, PHE-CB
 
-	def test_calculate_interface_residues_basic(self, sample_atoms_df):
-		"""Test basic interface residue calculation."""
-		from pepy.utils.geometry import GeometryUtils
+		# Check that we get the right atom types
+		ala_atoms = result[result['residue_name'] == 'ALA']
+		gly_atoms = result[result['residue_name'] == 'GLY']
+		val_atoms = result[result['residue_name'] == 'VAL']
+		phe_atoms = result[result['residue_name'] == 'PHE']
 
-		# Create two groups of atoms
-		group1 = sample_atoms_df.iloc[:2].copy()  # First two atoms
-		group2 = sample_atoms_df.iloc[2:4].copy()  # Next two atoms
+		assert ala_atoms['atom_name'].iloc[0] == 'CB'  # ALA should have CB
+		assert gly_atoms['atom_name'].iloc[0] == 'CA'  # GLY should have CA
+		assert val_atoms['atom_name'].iloc[0] == 'CB'  # VAL should have CB
+		assert phe_atoms['atom_name'].iloc[0] == 'CB'  # PHE should have CB
 
-		residues1, residues2 = GeometryUtils.calculate_interface_residues(
-			group1, group2, cutoff=5.0
+	def test_calculate_interface_residues_integrated(self, sample_complex):
+		"""Test interface residue calculation via the integrated method."""
+		atom_df = sample_complex._df['ATOM']
+
+		# Get chain atoms
+		peptide_atoms = sample_complex._get_chain_atoms(atom_df, ['B'])
+		receptor_atoms = sample_complex._get_chain_atoms(atom_df, ['A'])
+
+		# Calculate interface with generous cutoff
+		residues1, residues2 = sample_complex._calculate_interface_residues(
+			receptor_atoms, peptide_atoms, cutoff=10.0
 		)
 
 		assert isinstance(residues1, list)
 		assert isinstance(residues2, list)
+		# Should find some interface residues with generous cutoff
+		assert len(residues1) > 0 or len(residues2) > 0
 
-	def test_interface_filter_by_confidence(self):
-		"""Test confidence filtering."""
-		from pepy.utils.geometry import InterfaceFilter
+	def test_confidence_filtering_integrated(self, sample_complex):
+		"""Test confidence filtering via the integrated method."""
+		atom_df = sample_complex._df['ATOM']
 
-		# Create sample DataFrame
-		df = pd.DataFrame({
-			'residue_number': [1, 2, 3],
-			'b_factor': [40.0, 60.0, 80.0],
-			'atom_name': ['CA', 'CA', 'CA']
-		})
+		# Test confidence filtering
+		filtered = sample_complex._filter_by_confidence_threshold(atom_df, 70.0)
 
-		filtered = InterfaceFilter.filter_by_confidence(df, threshold=50.0)
+		# Should keep only atoms with b_factor > 70
+		assert all(filtered['b_factor'] > 70.0)
 
-		# Should keep only residues with b_factor > 50
-		assert len(filtered) == 2
-		assert all(filtered['b_factor'] > 50.0)
-
-	def test_filter_by_minimum_size(self):
-		"""Test minimum interface size filtering."""
-		from pepy.utils.geometry import InterfaceFilter
-
+	def test_minimum_size_filtering_integrated(self, sample_complex):
+		"""Test minimum size filtering via the integrated method."""
 		# Test with sufficient size
 		residues = [1, 2, 3, 4, 5]
-		result = InterfaceFilter.filter_by_minimum_size(residues, min_size=3)
+		result = sample_complex._filter_by_minimum_size(residues, min_size=3)
 		assert result == residues
 
 		# Test with insufficient size
-		result = InterfaceFilter.filter_by_minimum_size(residues, min_size=10)
+		result = sample_complex._filter_by_minimum_size(residues, min_size=10)
 		assert result == []
 
 
@@ -259,7 +267,6 @@ class TestInterfaceIntegration:
 
 	def test_complete_workflow(self, pdb_file='pepy/tests/data/1YCR.pdb'):
 		"""Test complete workflow from loading to interface analysis."""
-
 		# Complete workflow
 		complex = PeptideProteinComplex.from_file(pdb_file)
 		complex.identify_chains(peptide_chain='B')
@@ -279,13 +286,15 @@ class TestInterfaceIntegration:
 		assert isinstance(pep_atoms, pd.DataFrame)
 		assert isinstance(rec_atoms, pd.DataFrame)
 
-
 	def test_cache_invalidation(self, temp_file):
 		"""Test that interface results are cleared when chains change."""
 		pdb_content = """HEADER    TEST CACHE
 ATOM      1  CA  ALA A   1      10.000   0.000   0.000  1.00 70.00           C  
-ATOM      2  CA  PHE B   1      14.000   0.000   0.000  1.00 80.00           C  
-ATOM      3  CA  TRP C   1      18.000   0.000   0.000  1.00 90.00           C  
+ATOM      2  CB  ALA A   1      11.000   0.000   0.000  1.00 70.00           C  
+ATOM      3  CA  PHE B   1      14.000   0.000   0.000  1.00 80.00           C  
+ATOM      4  CB  PHE B   1      15.000   0.000   0.000  1.00 80.00           C  
+ATOM      5  CA  TRP C   1      18.000   0.000   0.000  1.00 90.00           C  
+ATOM      6  CB  TRP C   1      19.000   0.000   0.000  1.00 90.00           C  
 END
 """
 

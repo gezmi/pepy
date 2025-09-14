@@ -40,7 +40,7 @@ class ConfidenceMetricsParser:
 		# Calculate combined confidence if both metrics available
 		confidence = None
 		if iptm is not None and ptm is not None:
-			confidence = 0.8 * iptm + 0.2 * ptm
+			confidence = round(0.8 * iptm + 0.2 * ptm, 2)
 
 		# Parse pLDDT data
 		plddt_data = raw_data.get('plddt')
