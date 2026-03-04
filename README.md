@@ -55,6 +55,7 @@ Jupyter notebook tutorials are in [`docs/tutorials/`](docs/tutorials/):
 | [Working with Protein Complexes](docs/tutorials/Working_with_Protein_Complexes.ipynb) | Loading structures, chain assignment, interface calculation, accessing atoms |
 | [Working with Confidence Data](docs/tutorials/Working_with_Confidence_Data.ipynb) | AF2/AF3/ChAI confidence loading, iPTM/pTM, PAE matrices, interface metrics |
 | [Full Analysis Pipeline](docs/tutorials/Full_Analysis_Pipeline.ipynb) | One-call workflow, batch processing, combining results |
+| [Command Line Interface](docs/tutorials/Command_Line_Interface.ipynb) | CLI usage, batch scoring, all flags, output format, migration from old script |
 
 ## Command Line
 
