@@ -56,6 +56,32 @@ Jupyter notebook tutorials are in [`docs/tutorials/`](docs/tutorials/):
 | [Working with Confidence Data](docs/tutorials/Working_with_Confidence_Data.ipynb) | AF2/AF3/ChAI confidence loading, iPTM/pTM, PAE matrices, interface metrics |
 | [Full Analysis Pipeline](docs/tutorials/Full_Analysis_Pipeline.ipynb) | One-call workflow, batch processing, combining results |
 
+## Command Line
+
+After `pip install -e .`, PePy is available as a CLI tool:
+
+```bash
+# Single file
+pepy -i structure.pdb -o results.tsv
+
+# With confidence metrics
+pepy -i structure.pdb -o results.tsv -j
+
+# Batch — glob pattern
+pepy -g "predictions/*.pdb" -o results.tsv -j
+
+# Batch — file list
+pepy -l file_list.txt -o results.tsv -j
+
+# Explicit chains, custom cutoffs, drop low confidence
+pepy -i structure.pdb -o results.tsv -b B -r A --cb-cutoff 8 --all-atom-cutoff 4 -d -j
+
+# Parallel processing
+pepy -g "predictions/*.pdb" -o results.tsv -j -c -1
+```
+
+Output is a tab-separated file with columns: `file`, `binder`, `receptor`, `n_binder_res`, `n_receptor_res`, `avg_plddt`, `max_plddt`, and (with `-j`): `iptm`, `ptm`, `ipae`, `min_ipae`, `confidence`.
+
 ## Supported Formats
 
 | Source | Structure | Confidence |
