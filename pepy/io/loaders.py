@@ -138,6 +138,11 @@ def add_ca_indices(atom_df: pd.DataFrame) -> pd.DataFrame:
 	"""
 	Add CA indices for PAE matrix mapping.
 
+	Each atom gets the ca_index of the CA atom in its residue, which corresponds
+	to the row/column position in the PAE matrix. This is important because atoms
+	appearing before CA in a residue (like N in AF3 outputs) would otherwise get
+	wrong indices from a simple cumsum.
+
 	Args:
 		atom_df: ATOM dataframe
 
@@ -146,4 +151,14 @@ def add_ca_indices(atom_df: pd.DataFrame) -> pd.DataFrame:
 	"""
 	atom_df = atom_df.copy()
 	atom_df['ca_index'] = (atom_df['atom_name'] == 'CA').cumsum() - 1
+	# Merge back so all atoms in the same residue get the CA's correct index
+	ca_df = atom_df[atom_df['atom_name'] == 'CA'][['chain_id', 'residue_number', 'ca_index']]
+	atom_df = atom_df.merge(
+		ca_df,
+		on=['chain_id', 'residue_number'],
+		how='left',
+		suffixes=('', '_from_CA')
+	)
+	atom_df['ca_index'] = atom_df['ca_index_from_CA']
+	atom_df = atom_df.drop(columns=['ca_index_from_CA'])
 	return atom_df

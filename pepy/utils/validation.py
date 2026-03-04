@@ -1,5 +1,5 @@
 """
-Validation utilities for peptide-protein complex analysis.
+Validation utilities for protein complex analysis.
 """
 
 import os
@@ -27,14 +27,14 @@ def validate_file_path(filepath: str) -> None:
 
 
 def validate_chains(available_chains: List[str],
-                   peptide_chain: Optional[str] = None,
+                   binder_chains: Optional[List[str]] = None,
                    receptor_chains: Optional[List[str]] = None) -> None:
     """
     Validate chain assignments against available chains.
 
     Args:
         available_chains: List of chains present in structure
-        peptide_chain: Proposed peptide chain ID
+        binder_chains: Proposed binder chain IDs
         receptor_chains: Proposed receptor chain IDs
 
     Raises:
@@ -43,9 +43,11 @@ def validate_chains(available_chains: List[str],
     if not available_chains:
         raise ValueError("No chains found in structure")
 
-    if peptide_chain and peptide_chain not in available_chains:
-        raise ValueError(f"Peptide chain '{peptide_chain}' not found in structure. "
-                        f"Available chains: {available_chains}")
+    if binder_chains:
+        for bc in binder_chains:
+            if bc not in available_chains:
+                raise ValueError(f"Binder chain '{bc}' not found in structure. "
+                                f"Available chains: {available_chains}")
 
     if receptor_chains:
         invalid_receptors = [c for c in receptor_chains if c not in available_chains]
@@ -53,29 +55,7 @@ def validate_chains(available_chains: List[str],
             raise ValueError(f"Receptor chains not found: {invalid_receptors}. "
                            f"Available chains: {available_chains}")
 
-        if peptide_chain and peptide_chain in receptor_chains:
-            raise ValueError(f"Chain '{peptide_chain}' cannot be both peptide and receptor")
-
-
-def validate_analysis_ready(peptide_chain: Optional[str],
-                           receptor_chains: List[str],
-                           atom_df_empty: bool) -> None:
-    """
-    Validate that structure is ready for analysis.
-
-    Args:
-        peptide_chain: Assigned peptide chain
-        receptor_chains: Assigned receptor chains
-        atom_df_empty: Whether ATOM dataframe is empty
-
-    Raises:
-        RuntimeError: If structure not ready for analysis
-    """
-    if peptide_chain is None:
-        raise RuntimeError("No peptide chain assigned. Call identify_chains() first.")
-
-    if not receptor_chains:
-        raise RuntimeError("No receptor chains assigned. Call identify_chains() first.")
-
-    if atom_df_empty:
-        raise RuntimeError("No ATOM records found in structure.")
+        if binder_chains:
+            overlap = set(binder_chains) & set(receptor_chains)
+            if overlap:
+                raise ValueError(f"Chain(s) {overlap} cannot be both binder and receptor")

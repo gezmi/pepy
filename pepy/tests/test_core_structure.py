@@ -1,61 +1,56 @@
 """
-Tests for the main PeptideProteinComplex class.
+Tests for the main ProteinComplex class.
 """
 
 import pytest
 import tempfile
 import os
-from pepy import PeptideProteinComplex
+from pepy import ProteinComplex
 
-class TestPeptideProteinComplex:
+class TestProteinComplex:
 
 	def test_initialization(self):
 		"""Test basic initialization."""
-		complex = PeptideProteinComplex()
-		assert complex.peptide_chain is None
+		complex = ProteinComplex()
+		assert complex.binder_chains == []
 		assert complex.receptor_chains == []
-		assert complex.cb_cutoff == 8.0
-		assert complex.all_atom_cutoff == 4.0
 
 	def test_load_structure_file_not_found(self):
 		"""Test loading non-existent file raises error."""
-		complex = PeptideProteinComplex()
+		complex = ProteinComplex()
 		with pytest.raises(FileNotFoundError):
 			complex.load_structure("nonexistent.pdb")
 
 	def test_load_structure_unsupported_format(self):
 		"""Test loading unsupported file format."""
-		complex = PeptideProteinComplex()
+		complex = ProteinComplex()
 		with pytest.raises(ValueError, match="Unsupported file format"):
 			complex.load_structure("test.xyz")
 
 	def test_load_pdb_from_string(self, temp_file, minimal_pdb_content):
 		"""Test loading PDB from string content."""
-		# Write content to temp file
 		with open(temp_file, 'w') as f:
 			f.write(minimal_pdb_content)
 
-		# Load structure
-		complex = PeptideProteinComplex()
+		complex = ProteinComplex()
 		complex.load_structure(temp_file)
 
-		# Check structure loaded
 		assert 'ATOM' in complex.df
 		assert not complex.df['ATOM'].empty
 		assert 'ca_index' in complex.df['ATOM'].columns
 
 	def test_identify_chains_auto_detect(self, temp_file, minimal_pdb_content):
-		"""Test auto-detection of chains (shortest = peptide)."""
+		"""Test auto-detection of chains (shortest = binder)."""
 		with open(temp_file, 'w') as f:
 			f.write(minimal_pdb_content)
 
-		complex = PeptideProteinComplex()
+		complex = ProteinComplex()
 		complex.load_structure(temp_file)
 		complex.identify_chains()
 
 		# Chain A has 2 residues, Chain B has 1 residue
-		# So B should be peptide (shortest)
-		assert complex.peptide_chain == 'B'
+		# So B should be binder (shortest)
+		assert complex.binder_chains == ['B']
 		assert complex.receptor_chains == ['A']
 
 	def test_identify_chains_explicit(self, temp_file, minimal_pdb_content):
@@ -63,30 +58,42 @@ class TestPeptideProteinComplex:
 		with open(temp_file, 'w') as f:
 			f.write(minimal_pdb_content)
 
-		complex = PeptideProteinComplex()
+		complex = ProteinComplex()
 		complex.load_structure(temp_file)
-		complex.identify_chains(peptide_chain='A', receptor_chains=['B'])
+		complex.identify_chains(binder_chains='A', receptor_chains=['B'])
 
-		assert complex.peptide_chain == 'A'
+		assert complex.binder_chains == ['A']
 		assert complex.receptor_chains == ['B']
 
-	def test_identify_chains_invalid_peptide(self, temp_file, minimal_pdb_content):
-		"""Test error when specifying invalid peptide chain."""
+	def test_identify_chains_multi_binder(self, temp_file, minimal_pdb_content):
+		"""Test specifying multi-chain binder as list."""
 		with open(temp_file, 'w') as f:
 			f.write(minimal_pdb_content)
 
-		complex = PeptideProteinComplex()
+		complex = ProteinComplex()
+		complex.load_structure(temp_file)
+		complex.identify_chains(binder_chains=['A'], receptor_chains=['B'])
+
+		assert complex.binder_chains == ['A']
+		assert complex.receptor_chains == ['B']
+
+	def test_identify_chains_invalid_binder(self, temp_file, minimal_pdb_content):
+		"""Test error when specifying invalid binder chain."""
+		with open(temp_file, 'w') as f:
+			f.write(minimal_pdb_content)
+
+		complex = ProteinComplex()
 		complex.load_structure(temp_file)
 
-		with pytest.raises(ValueError, match="Peptide chain 'C' not found"):
-			complex.identify_chains(peptide_chain='C')
+		with pytest.raises(ValueError, match="Binder chain 'C' not found"):
+			complex.identify_chains(binder_chains='C')
 
 	def test_get_chain_lengths(self, temp_file, minimal_pdb_content):
 		"""Test chain length calculation."""
 		with open(temp_file, 'w') as f:
 			f.write(minimal_pdb_content)
 
-		complex = PeptideProteinComplex()
+		complex = ProteinComplex()
 		complex.load_structure(temp_file)
 
 		lengths = complex.get_chain_lengths()
@@ -98,7 +105,7 @@ class TestPeptideProteinComplex:
 		with open(temp_file, 'w') as f:
 			f.write(minimal_pdb_content)
 
-		complex = PeptideProteinComplex()
+		complex = ProteinComplex()
 		complex.load_structure(temp_file)
 
 		chain_info = complex.get_chain_info()
@@ -110,7 +117,7 @@ class TestPeptideProteinComplex:
 		with open(temp_file, 'w') as f:
 			f.write(minimal_pdb_content)
 
-		complex = PeptideProteinComplex()
+		complex = ProteinComplex()
 		complex.load_structure(temp_file)
 
 		# Before chain identification
@@ -121,15 +128,15 @@ class TestPeptideProteinComplex:
 		complex.identify_chains()
 		summary = complex.get_analysis_summary()
 		assert summary['status'] == 'ready'
-		assert summary['peptide_chain'] == 'B'
-		assert summary['peptide_length'] == 1
+		assert summary['binder_chains'] == ['B']
+		assert summary['binder_length'] == 1
 
 	def test_cache_clearing(self, temp_file, minimal_pdb_content):
 		"""Test that cache gets cleared appropriately."""
 		with open(temp_file, 'w') as f:
 			f.write(minimal_pdb_content)
 
-		complex = PeptideProteinComplex()
+		complex = ProteinComplex()
 		complex.load_structure(temp_file)
 
 		# Populate cache

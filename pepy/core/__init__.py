@@ -1,7 +1,7 @@
 """
-Core classes and functionality for peptide-protein complex analysis.
+Core classes and functionality for protein complex interface analysis.
 """
 
-from .structure import PeptideProteinComplex
+from .structure import ProteinComplex
 
-__all__ = ["PeptideProteinComplex"]
+__all__ = ["ProteinComplex"]

@@ -8,7 +8,7 @@ import os
 from pathlib import Path
 
 # Test data directory
-TEST_DATA_DIR = Path(__file__).parent / "fixtures"
+TEST_DATA_DIR = Path(__file__).parent / "data"
 
 @pytest.fixture
 def sample_pdb_path():

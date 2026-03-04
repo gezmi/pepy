@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pepy"
+version = "0.1.0"
+description = "Protein complex interface analysis"
+requires-python = ">=3.9"
+authors = [{name = "Julia K. Varga", email = "jvarga92@gmail.com"}]
+dependencies = [
+    "pandas>=1.3",
+    "numpy>=1.20",
+    "biopandas @ git+https://github.com/gezmi/biopandas.git@stack_tmalign",
+    "ujson>=5.0",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=7.0"]
+
+[tool.setuptools.packages.find]
+include = ["pepy*"]
+exclude = ["pepy.tests*"]
+
+[tool.pytest.ini_options]
+testpaths = ["pepy/tests"]
